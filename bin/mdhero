@@ -1,0 +1,99 @@
+#!/bin/sh 
+
+TARGET_DOCS=0
+TARGET_SLIDES=0
+ACTION=""
+LIVE_PORT=4000
+TARGET_DIR="."
+DOCKER_NAME="glenux/mdhero"
+
+frm_usage() {
+	echo "Usage: $(basename "$0") action [options] [directory]"
+	echo ""
+	echo "Action:"
+	echo "  build              # Export (to PDF or HTML)"
+	echo "  live               # Run live server"
+	echo ""
+	echo "Options:"
+	echo "  -a,--all           # Target slides + docs (by default)"
+	echo "  -s,--slides        # Target slides"
+	echo "  -d,--docs          # Target docs"
+	echo "  -p,--port PORT     # Use base port PORT (and PORT+1)"
+	echo ""
+}
+
+frm_build() {
+	docker run \
+		--rm \
+		-v "$(cd $TARGET_DIR ; pwd):/target" \
+		-t "$DOCKER_NAME" \
+		build 
+}
+
+frm_live() {
+	docker run --rm \
+		-v "$(cd $TARGET_DIR ; pwd):/target" \
+		-p "4000:$LIVE_PORT" \
+		-p "4001:$((LIVE_PORT + 1))" \
+		-t "$DOCKER_NAME" build 
+}
+
+### MAIN ENTRY POINT
+
+while [ $# -gt 0 ]; do 
+	arg=$1
+	param=${2:-}
+	shift
+	case "$arg" in 
+		build) 
+			ACTION="$arg" 
+			;;
+		live) 
+			ACTION="$arg" 
+			;;
+		-a|--all)
+			TARGET_DOCS=1
+			TARGET_SLIDES=1
+			;;
+		-s|--slides)
+			TARGET_SLIDES=1
+			;;
+		-d|--docs)
+			TARGET_DOCS=1
+			;;
+		-p|--port)
+			LIVE_PORT="$(($param))"
+			shift
+			;;
+		-t|--target)
+			TARGET_DIR="$param"
+			shift 
+			;;
+		-h|--help)
+			ACTION="usage"
+			;;
+		*)
+			frm_usage;
+			echo "ERROR: unknown parameter $arg"
+			echo ""
+			exit 1
+	esac
+done
+
+if [ -z "$LIVE_PORT" ]; then
+	frm_usage
+	echo "ERROR: port '' must not be an integer value"
+	echo ""
+	exit 1
+fi
+
+if [ -z "$ACTION" ]; then 
+	frm_usage
+	echo "ERROR: no action specified"
+	echo ""
+	exit 1
+fi
+
+frm_${ACTION}
+exit 0
+
